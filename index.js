@@ -1,30 +1,14 @@
-import express from "express";
+import express, { application } from "express";
 import bodyParser from "body-parser";
 import pg from "pg";
 
 const client = new pg.Client({
   host: "localhost",
-  user: "lokkeroom_admin",
+  user: "admin_lokkeroom",
   port: 5432,
-  password: "LokkerPassword",
-  database: "lokkeroom",
+  password: "lokkeroom_password",
+  database: "lokkeroom_db",
 });
-
-const PORT = 3000;
-const app = express();
-
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-
-let users = 
-  "CREATE TABLE Users(id int,email varchar,password varchar,PRIMARY KEY (id));";
-
-let groups_list =
-  "CREATE TABLE Groups_list(id int ,id_Users int REFERENCES Users(id),id_Groups int REFERENCES Groups(id) ,PRIMARY KEY (id));";
-
-let groups = 
-  "CREATE TABLE Groups(id int, PRIMARY KEY (id));";
-
 
 client.connect((err) => {
   if (err) {
@@ -34,10 +18,65 @@ client.connect((err) => {
   }
 });
 
+const PORT = 3000;
+const app = express();
 
-// client
-//   .query(groups_list)
-//   .catch((err) => console.error("connection error", err.stack));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
+app.post("/api/register", async (req, res) => {
+  const { email, password } = req.body;
+
+  client.query(
+    `SELECT * FROM "Users"
+      WHERE email = $1`, [email], (err, results) => {
+      if(err){
+        throw err
+      }
+
+      if (results.rows.length > 0){
+        res.send('this email is already registered');
+      }else{
+        client.query(
+          `INSERT INTO "Users" (email, password)
+            VALUES ($1, $2)
+            RETURNING id`, [email, password], (err, results) => {
+              if(err){
+                throw err
+              }
+              res.send("account created");
+            }
+        )
+      }
+    }
+  )
+});
+
+app.get('/api/login', (req, res) => {
+  const { email, password } = req.body;
+
+  client.query(
+    `SELECT * FROM "Users"
+      WHERE email = $1`, [email], (err, results) => {
+      if(err){
+        throw err
+      }
+
+      if(results.rows.length === 0){
+        res.send('this email is not registered');
+      }
+
+      if(results.rows[0].password == password){
+        res.send('connected')
+      }else{
+        res.send('password wrong');
+      }
+    }
+  )
+});
+
+app.listen(PORT, () =>
+  console.log(`Server started: http://localhost:${PORT}/`)
+);
 
 
